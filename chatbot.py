@@ -265,7 +265,11 @@ def main() -> None:
         layout="wide",
     )
 
-    bootstrap()
+    try:
+        bootstrap()
+    except Exception as e:
+        st.error(f"Failed to initialize database: {e}")
+        st.stop()
     client = get_client()
 
     with st.sidebar:
@@ -302,11 +306,15 @@ def main() -> None:
         api_msgs = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
 
         with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                reply, figures = chat(client, api_msgs)
-            st.markdown(reply)
-            for fig_bytes in figures:
-                st.image(fig_bytes)
+            try:
+                with st.spinner("Thinking..."):
+                    reply, figures = chat(client, api_msgs)
+                st.markdown(reply)
+                for fig_bytes in figures:
+                    st.image(fig_bytes)
+            except Exception as e:
+                reply, figures = f"Something went wrong: {e}", []
+                st.error(reply)
 
         st.session_state.messages.append({"role": "assistant", "content": reply, "figures": figures})
 
