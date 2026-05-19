@@ -3,6 +3,7 @@ import os
 import sqlite3
 import subprocess
 import sys
+import time
 
 import anthropic
 import matplotlib
@@ -205,12 +206,24 @@ def run_compute_statistics(inp: dict) -> str:
 
 # ── Chat loop ─────────────────────────────────────────────────────────────────
 
+def _create_with_retry(client: anthropic.Anthropic, **kwargs) -> anthropic.types.Message:
+    for attempt in range(4):
+        try:
+            return client.messages.create(**kwargs)
+        except anthropic.RateLimitError:
+            if attempt == 3:
+                raise
+            time.sleep(2 ** attempt)
+
+
 def chat(client: anthropic.Anthropic, messages: list[dict]) -> tuple[str, list[bytes]]:
     figures: list[bytes] = []
-    api_messages = messages.copy()
+    # keep only the last 10 messages to limit token growth
+    api_messages = messages[-10:]
 
     while True:
-        response = client.messages.create(
+        response = _create_with_retry(
+            client,
             model=MODEL,
             max_tokens=4096,
             system=SYSTEM_PROMPT,
